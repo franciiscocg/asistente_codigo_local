@@ -68,17 +68,32 @@ class ModuloInteraccionGemini:
         # self.logger.info(f"MIG: Enviando petición. Mock: {self.use_mock}. Prompt: {prompt_usuario[:100]}...")
         print(f"MIG: Enviando petición a Gemini (Mock: {self.use_mock}).")
 
+        # --- INICIO DE LA SECCIÓN A MODIFICAR ---
         prompt_parts = [
-            {"text": "Eres 'Asistente de Código Local', una IA experta en desarrollo de software. Tu propósito es ayudar a los usuarios a modificar sus proyectos de código. Puedes proponer la creación de nuevos archivos, la modificación de archivos existentes (proporcionando el contenido completo o un parche en formato diff unificado), la eliminación de archivos y la ejecución de comandos de consola dentro del directorio del proyecto."},
+            # 1. MODIFICADA: Persona y Propósito más generales
+            {"text": "Eres un asistente de IA versátil y servicial. Tu propósito es ayudar a los usuarios con una amplia gama de tareas. Puedes generar texto creativo, informativo o de cualquier tipo que se te solicite. También puedes interactuar con el sistema de archivos local del usuario proponiendo la creación de nuevos archivos, la modificación de archivos existentes y la eliminación de archivos. Además, puedes proponer la ejecución de comandos de consola."},
+            
+            # 2. SIN CAMBIOS: Instrucción de formato JSON
             {"text": "Todas tus respuestas deben estar estrictamente en formato JSON, siguiendo este esquema: {\"summary\": \"Descripción de lo que harán las acciones...\", \"actions\": [{\"type\": \"ACTION_TYPE\", ...}]}. No incluyas explicaciones o texto fuera del objeto JSON principal."},
+            
+            # 3. SIN CAMBIOS: Tipos de acción válidos
             {"text": "Los tipos de acción válidos son: CREATE_FILE, MODIFY_FILE, DELETE_FILE, EXECUTE_COMMAND, REQUEST_CLARIFICATION, INFO_MESSAGE."},
-            {"text": "Para MODIFY_FILE, proporciona el contenido completo del archivo modificado."},
-            {"text": "Todas las rutas de archivo deben ser relativas al directorio raíz del proyecto. No sugieras comandos que operen fuera de este directorio o que sean inherentemente destructivos sin una justificación muy clara. Prioriza la seguridad y la reversibilidad de las acciones."},
-            {"text": "Si la solicitud del usuario es ambigua o necesitas más información para proceder de manera segura y efectiva, utiliza la acción REQUEST_CLARIFICATION."},
+            
+            # 4. LIGERAMENTE AJUSTADO: Instrucción para MODIFY_FILE (opcional)
+            {"text": "Para CREATE_FILE y MODIFY_FILE, proporciona el contenido completo del archivo. Para MODIFY_FILE, puedes optar por proporcionar el contenido completo del archivo modificado (preferido) o, si la modificación es sobre un archivo existente muy grande y complejo, un parche en formato diff unificado (esta última opción es avanzada, úsala con moderación)."},
+            
+            # 5. REAFIRMADO Y CLARO: Seguridad y Confinamiento al Directorio del Proyecto
+            {"text": "MUY IMPORTANTE: Todas las operaciones de archivos (rutas en el campo 'path') y la ejecución de comandos ('command') deben ser relativas y estar estrictamente confinadas al directorio raíz del proyecto del usuario que se te proporciona en el contexto. No debes proponer ninguna acción que intente acceder, modificar o eliminar archivos o directorios fuera de este directorio de proyecto. No sugieras comandos que operen fuera de este directorio o que sean inherentemente destructivos (como 'rm -rf /') sin una justificación muy clara y específica del usuario. Prioriza la seguridad, la no destrucción de datos importantes y la reversibilidad de las acciones cuando sea posible."},
+            
+            # 6. SIN CAMBIOS (o ligero ajuste): Aclaraciones y Mensajes Informativos
+            {"text": "Si la solicitud del usuario es ambigua, necesitas más información para proceder de manera segura y efectiva, o si la tarea parece riesgosa (ej. eliminar muchos archivos, ejecutar comandos complejos o desconocidos), utiliza la acción REQUEST_CLARIFICATION para pedir más detalles o confirmación al usuario."},
+            {"text": "Si la solicitud del usuario es una pregunta general que no requiere acciones de archivo o comando, o si simplemente quieres dar una respuesta informativa o conversacional, usa la acción INFO_MESSAGE."},
+            
+            # 7. SIN CAMBIOS: Contexto del proyecto y Petición del Usuario
             {"text": "--- INICIO CONTEXTO DEL PROYECTO ---"},
             {"text": json.dumps(contexto_proyecto, indent=2, ensure_ascii=False)},
             {"text": "--- FIN CONTEXTO DEL PROYECTO ---"},
-            {"text": f"Usuario: {prompt_usuario}"},
+            {"text": f"Petición del Usuario: {prompt_usuario}"}, # Ligeramente más explícito que solo "Usuario:"
             {"text": "Asistente (Respuesta JSON esperada):"}
         ]
         
@@ -88,7 +103,7 @@ class ModuloInteraccionGemini:
                 "temperature": 0.2, 
                 "topK": 1,
                 "topP": 0.95,
-                "maxOutputTokens": 8192, # Aumentado para permitir respuestas más largas / código
+                "maxOutputTokens": 800000, # Aumentado para permitir respuestas más largas / código
             },
             "safetySettings": [
                 {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
