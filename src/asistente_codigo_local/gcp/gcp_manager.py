@@ -20,8 +20,20 @@ PATRONES_EXCLUSION_DEFAULT = [
 # Expresiones regulares para detectar posibles secretos en el contenido de los archivos
 # Estos son ejemplos básicos y necesitarían ser mucho más robustos y configurables
 PATRONES_SECRETOS_CONTENIDO = [
-    re.compile(r"(api_key|secret_key|password|token)\s*[:=]\s*["']?[A-Za-z0-9\-_\.~+/=]{16,}["']?", re.IGNORECASE),
-    re.compile(r"-----BEGIN (RSA|OPENSSH|PGP|EC) PRIVATE KEY-----.*?-----END \1 PRIVATE KEY-----", re.DOTALL | re.IGNORECASE)
+    re.compile(
+        # Se corrigió la secuencia de escape inválida: '\-' en [A-Za-z0-9\-_\.~+/=]
+        # se cambió a '-' al final de la clase de caracteres [A-Za-z0-9_.~+/=-]
+        # para evitar el SyntaxWarning y mantener la funcionalidad.
+        # También se escaparon las comillas opcionales ["']? como [\"']? para mayor claridad,
+        # aunque en raw strings r"..." no es estrictamente necesario para el funcionamiento.
+        r"(api_key|secret_key|password|token)\s*[:=]\s*[\"']?[A-Za-z0-9_.~+/=-]{16,}[\"']?",
+        re.IGNORECASE
+    ),
+    re.compile(
+        # Esta expresión regular parece estar bien.
+        r"-----BEGIN (RSA|OPENSSH|PGP|EC) PRIVATE KEY-----.*?-----END \1 PRIVATE KEY-----",
+        re.DOTALL | re.IGNORECASE
+    )
 ]
 
 MAX_FILE_SIZE_CONTEXT = 1024 * 100 # No incluir archivos mayores a 100KB en el contexto (configurable)
