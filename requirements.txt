@@ -3,3 +3,4 @@ black
 requests
 
 Flask
+gunicorn>=20.0

@@ -26,6 +26,11 @@ class ModuloInteraccionGemini:
                 print("MIG: Inicializado con Mock API por defecto.")
                 # self.logger.info("MIG: Inicializado con Mock API por defecto.")
         else:
+            self.api_key = os.environ.get("GEMINI_API_KEY") # Intentar leer de variable de entorno primero
+            if self.api_key:
+                print(f"Clave API de Gemini cargada desde la variable de entorno GEMINI_API_KEY.")
+            else:
+                print(f"Variable de entorno GEMINI_API_KEY no encontrada. Intentando leer desde {CONFIG_FILE_PATH}.")
             try:
                 with open(CONFIG_FILE_PATH, "r") as f:
                     config = json.load(f)

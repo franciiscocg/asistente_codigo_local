@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  asistente_web_ui:
+    build: . # Busca el Dockerfile en el directorio actual (raíz del proyecto)
+    container_name: asistente_local_web
+    ports:
+      # Mapea: <puerto_en_tu_máquina>:<puerto_en_el_contenedor>
+      - "5001:5001" 
+    volumes:
+      # Monta un directorio local para que el asistente opere sobre él.
+      # Crea una carpeta 'datos_proyecto_asistente' en la raíz de tu proyecto local,
+      # o cambia './datos_proyecto_asistente' a la ruta de la carpeta con la que quieres trabajar.
+      - ./datos_proyecto_asistente:/data_for_assistant 
+      # Monta los logs para que sean persistentes en tu máquina local.
+      - ./logs/web_asistente:/root/.asistente_codigo_local
+      # Opcional: Montar tu config.json si no usas variable de entorno para la API key
+      # Esto permite cambiar la config sin reconstruir la imagen.
+      # La ruta interna debe coincidir con donde mig_client.py la busca.
+      # Dentro del contenedor, será /app/src/asistente_codigo_local/core/config.json
+      - ./src/asistente_codigo_local/core/config.json:/app/src/asistente_codigo_local/core/config.json:ro
+    environment:
+      # Estas variables se pasan al contenedor y pueden ser usadas por app.py o el Dockerfile
+      - FLASK_RUN_PORT=5001
+      - FLASK_DEBUG=1 # 1 para modo debug, 0 para "producción" con el dev server de Flask
+      - ASSISTANT_PROJECT_DIR=/data_for_assistant # El GPO operará sobre el volumen montado aquí
+      # Descomenta y pon tu API Key si modificaste mig_client.py para leerla desde el entorno.
+      # O usa un archivo .env (ver abajo).
+      # - GEMINI_API_KEY=TU_API_KEY_DE_GEMINI_AQUI
+    # Opcional: Para usar un archivo .env para tus variables de entorno
+    # env_file:
+    #   - .env
+    networks:
+      - asistente_net
+
+networks:
+  asistente_net:
+    driver: bridge
