@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asistente de Código Local - Web</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f0f2f5; color: #333; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+        .container { width: 100%; max-width: 800px; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px;}
+        h1 { color: #0056b3; text-align: center; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: #555; }
+        textarea, input[type="text"] { width: calc(100% - 22px); padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; font-size: 1em; }
+        input[type="submit"], button { background-color: #007bff; color: white; padding: 10px 18px; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; transition: background-color 0.2s; }
+        input[type="submit"]:hover, button:hover { background-color: #0056b3; }
+        .response-area { margin-top: 20px; padding: 15px; border: 1px solid #e0e0e0; border-radius: 4px; background-color: #f9f9f9; }
+        .response-area h3 { margin-top: 0; color: #0056b3; }
+        pre { background-color: #e9ecef; padding: 15px; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word; font-family: 'Courier New', Courier, monospace; font-size: 0.95em; color: #212529; }
+        .error-message { color: #d93025; font-weight: bold; }
+        .clarification-box { margin-top: 15px; padding: 15px; background-color: #fff3cd; border-left: 5px solid #ffeeba; color: #856404; border-radius: 4px; }
+        .clarification-box textarea { margin-top:10px; }
+        #loading-indicator { text-align: center; margin-top: 15px; font-style: italic; color: #777; display: none; }
+        .project-dir-info { font-size: 0.9em; color: #666; text-align: center; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Asistente de Código Local</h1>
+        <p class="project-dir-info">Operando sobre el directorio del proyecto: <code>{{ project_dir }}</code></p>
+
+        <form id="main-prompt-form">
+            <label for="prompt-input">Tu petición:</label>
+            <textarea id="prompt-input" name="prompt" rows="5" required placeholder="Escribe aquí tu solicitud o pregunta..."></textarea>
+            <input type="submit" value="Enviar">
+        </form>
+
+        <div id="clarification-section" class="clarification-box" style="display:none;">
+            <h4>El asistente necesita una aclaración:</h4>
+            <p id="clarification-message-text"></p>
+            <form id="clarification-response-form">
+                <label for="clarification-input-text">Tu respuesta:</label>
+                <textarea id="clarification-input-text" name="prompt" rows="3" required placeholder="Responde a la aclaración aquí..."></textarea>
+                <input type="submit" value="Enviar Aclaración">
+            </form>
+        </div>
+
+        <div id="response-display-area" class="response-area" style="display:none;">
+            <h3>Respuesta del Asistente:</h3>
+            <pre id="response-content"></pre>
+        </div>
+        <div id="loading-indicator">Procesando...</div>
+    </div>
+
+    <script>
+        const mainPromptForm = document.getElementById('main-prompt-form');
+        const clarificationSection = document.getElementById('clarification-section');
+        const clarificationMessageText = document.getElementById('clarification-message-text');
+        const clarificationResponseForm = document.getElementById('clarification-response-form');
+        const responseDisplayArea = document.getElementById('response-display-area');
+        const responseContent = document.getElementById('response-content');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const promptInput = document.getElementById('prompt-input'); // El textarea principal
+
+        async function handleSubmit(event, isClarification = false) {
+            event.preventDefault();
+            loadingIndicator.style.display = 'block';
+            if (!isClarification) {
+                clarificationSection.style.display = 'none'; // Ocultar si era una nueva petición
+            }
+            responseDisplayArea.style.display = 'none';
+
+            const formData = new FormData(isClarification ? clarificationResponseForm : mainPromptForm);
+            
+            try {
+                const response = await fetch('/ask', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                loadingIndicator.style.display = 'none';
+                responseDisplayArea.style.display = 'block';
+
+                if (data.type === "error") {
+                    responseContent.innerHTML = `<span class="error-message">Error: ${data.data}</span>`;
+                } else if (data.type === "clarification_needed") {
+                    responseDisplayArea.style.display = 'none'; // Ocultar área de respuesta normal
+                    clarificationSection.style.display = 'block';
+                    clarificationMessageText.textContent = data.message;
+                    document.getElementById('clarification-input-text').value = ''; // Limpiar input de aclaración
+                    document.getElementById('clarification-input-text').focus();
+                } else if (data.type === "results") {
+                    responseContent.textContent = data.data;
+                    clarificationSection.style.display = 'none'; // Ocultar si una aclaración tuvo éxito
+                } else {
+                    responseContent.textContent = JSON.stringify(data, null, 2); // Mostrar cualquier otra cosa
+                }
+            } catch (error) {
+                loadingIndicator.style.display = 'none';
+                responseDisplayArea.style.display = 'block';
+                responseContent.innerHTML = `<span class="error-message">Error de conexión o al procesar la respuesta: ${error.message}</span>`;
+                console.error('Error en fetch:', error);
+            }
+
+            if (!isClarification) {
+                mainPromptForm.reset(); // Limpiar solo si es una nueva petición principal
+            }
+        }
+
+        mainPromptForm.addEventListener('submit', (e) => handleSubmit(e, false));
+        clarificationResponseForm.addEventListener('submit', (e) => handleSubmit(e, true));
+
+    </script>
+</body>
+</html>
