@@ -7,7 +7,7 @@ import requests # Para la API real de Gemini
 # Cargar la configuración que contiene la API Key
 CONFIG_FILE_PATH = os.path.join(os.path.dirname(__file__), "..", "core", "config.json")
 
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent"
 
 class ModuloInteraccionGemini:
     def __init__(self, use_mock=False, mock_api_instance=None):
