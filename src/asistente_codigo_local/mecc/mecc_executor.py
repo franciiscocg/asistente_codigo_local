@@ -1,11 +1,7 @@
-# Asistente de Código Local - Módulo de Ejecución de Comandos de Consola (MECC)
-
+# En asistente_codigo_local/mecc/mecc_executor.py
 import subprocess
 import os
 import shlex
-
-# Placeholder para futuras importaciones (ej. logger)
-# from ..mlm import ModuloLogging
 
 class ModuloEjecucionComandosConsola:
     def __init__(self, directorio_proyecto_base: str):
@@ -14,29 +10,27 @@ class ModuloEjecucionComandosConsola:
             # self.logger.error(f"MECC: El directorio del proyecto base no existe: {directorio_proyecto_base}")
             raise ValueError(f"El directorio del proyecto base especificado no existe: {directorio_proyecto_base}")
         self.directorio_proyecto_base = os.path.abspath(directorio_proyecto_base)
+        # Log de inicialización original
         print(f"MECC: Inicializado con directorio base: {self.directorio_proyecto_base}")
         
-        # Lista blanca de comandos permitidos (ejemplo simple, expandir según sea necesario)
-        # Idealmente, esto sería configurable y más granular.
+        # Modificar la lista blanca
         self.comandos_permitidos = {
-            "echo": [], # Permite echo con cualquier argumento
-            "ls": ["-l", "-a"], # Permite ls con -l o -a
-            "git": ["status", "diff", "log"], # Comandos git seguros
-            "python": ["--version"], # Ejemplo de comando con argumento específico
-            "python3.11": ["--version"], 
+            "echo": [], 
+            "ls": ["-l", "-a"], 
+            "git": ["status", "diff", "log"], 
+            "python": [],  # Permitir 'python' con argumentos, se validarán específicamente
+            "python3": [], # Permitir 'python3' con argumentos, se validarán específicamente
             "node": ["--version"],
             "npm": ["--version", "list"],
-            # Se podrían añadir comandos de compilación o testeo específicos del proyecto si son seguros
+            # Puedes añadir más comandos seguros aquí si los necesitas, ej: "sh", "bash"
         }
 
     def _validar_comando(self, comando_str: str) -> bool:
-        """Valida si el comando está permitido y es seguro."""
-        # self.logger.debug(f"MECC: Validando comando: {comando_str}")
+        # Log de validación original
         print(f"MECC: Validando comando: {comando_str}")
         try:
-            partes_comando = shlex.split(comando_str) # Divide el comando de forma segura
+            partes_comando = shlex.split(comando_str) 
         except ValueError as e:
-            # self.logger.warning(f"MECC: Error al parsear el comando (shlex): {comando_str} - {e}")
             print(f"MECC: Error al parsear el comando (shlex): {comando_str} - {e}")
             return False
 
@@ -47,41 +41,69 @@ class ModuloEjecucionComandosConsola:
         comando_principal = partes_comando[0]
         argumentos_comando = partes_comando[1:]
 
-        # Comprobación de lista blanca
         if comando_principal not in self.comandos_permitidos:
             # self.logger.error(f"MECC: ¡ALERTA DE SEGURIDAD! Comando principal no permitido: {comando_principal}")
             print(f"MECC: ¡ALERTA DE SEGURIDAD! Comando principal no permitido: {comando_principal}")
             return False
         
-        # Validar argumentos si hay restricciones específicas en la lista blanca
-        argumentos_permitidos_para_comando = self.comandos_permitidos[comando_principal]
-        if argumentos_permitidos_para_comando: # Si la lista no está vacía, hay restricciones de args
-            for arg in argumentos_comando:
-                if not arg.startswith("-") and arg not in argumentos_permitidos_para_comando:
-                    # Permitir argumentos que no son flags si el comando lo requiere (ej. python script.py)
-                    # Esta lógica de validación de argumentos necesitaría ser más sofisticada
-                    # Por ahora, si hay una lista de args permitidos y el arg no está, lo rechazamos
-                    # a menos que sea un nombre de archivo o similar (lo cual es difícil de validar genéricamente aquí)
-                    # Para este ejemplo simplificado, si hay lista de args, solo esos args son permitidos.
-                    # Una mejora sería permitir patrones o tipos de argumentos.
-                    if arg not in argumentos_permitidos_para_comando:
-                        # self.logger.error(f"MECC: ¡ALERTA DE SEGURIDAD! Argumento no permitido ")
-                        print(f"MECC: ¡ALERTA DE SEGURIDAD! Argumento ")
-                        return False
+        # --- INICIO DE MODIFICACIÓN PARA PYTHON/PYTHON3 ---
+        if comando_principal in ["python", "python3"]:
+            if not argumentos_comando:
+                # Permitir `python` o `python3` sin argumentos (abre el REPL), si se considera seguro.
+                # O bloquearlo si no se quiere permitir. Por ahora, lo permitimos.
+                # print(f"MECC: '{comando_principal}' sin argumentos se ejecutará (REPL).")
+                return True # O False si no quieres permitir el REPL
+
+            primer_argumento = argumentos_comando[0]
+
+            if primer_argumento == "--version": # Permitir explícitamente "python --version"
+                return True
+
+            # Validar que el script .py sea el primer argumento y esté dentro del proyecto
+            if primer_argumento.endswith(".py"):
+                # Comprobar si la ruta del script es segura (relativa al proyecto)
+                # os.path.abspath previene algunos trucos, pero la comprobación startswith es clave.
+                ruta_script_propuesta = os.path.join(self.directorio_proyecto_base, primer_argumento)
+                ruta_script_abs = os.path.abspath(ruta_script_propuesta)
+
+                if not ruta_script_abs.startswith(self.directorio_proyecto_base + os.sep) and ruta_script_abs != self.directorio_proyecto_base :
+                    print(f"MECC: ¡ALERTA DE SEGURIDAD! Intento de ejecutar script de Python fuera del directorio del proyecto: {ruta_script_abs}")
+                    return False
+                
+                # Si es un script .py y está dentro del proyecto, consideramos la estructura del comando válida.
+                # La existencia del archivo la comprobará el propio subprocess al intentar ejecutarlo.
+                # Aquí solo validamos el formato del comando y la seguridad de la ruta.
+                print(f"MECC: Comando '{comando_principal} {primer_argumento}' validado para ejecución de script .py.")
+                return True
+            else:
+                # Si el primer argumento no es --version y no es un .py, lo consideramos inseguro
+                print(f"MECC: ¡ALERTA DE SEGURIDAD! Argumento '{primer_argumento}' no permitido para '{comando_principal}'. Solo se permite --version o un script .py como primer argumento.")
+                return False
+        # --- FIN DE MODIFICACIÓN PARA PYTHON/PYTHON3 ---
         
-        # Comprobaciones adicionales de seguridad (lista negra simple)
+        # Validación genérica de argumentos para otros comandos (si tienen restricciones)
+        argumentos_permitidos_para_comando_especifico = self.comandos_permitidos[comando_principal]
+        if argumentos_permitidos_para_comando_especifico: 
+            for arg_idx, arg_val in enumerate(argumentos_comando):
+                # Esta es una validación simple, asume que los argumentos permitidos son literales.
+                # Puede necesitar ser más sofisticada para comandos con patrones de argumentos.
+                if arg_val not in argumentos_permitidos_para_comando_especifico:
+                    # Permitir si el comando principal está en la lista y la lista de args permitidos está vacía (permite todos los args)
+                    # Esto ya está cubierto por `if argumentos_permitidos_para_comando_especifico:`
+                    print(f"MECC: ¡ALERTA DE SEGURIDAD! Argumento '{arg_val}' en posición {arg_idx} no está en la lista de argumentos permitidos para '{comando_principal}': {argumentos_permitidos_para_comando_especifico}")
+                    return False
+        
         comandos_peligrosos_absolutos = ["rm", "sudo", "mkfs", "dd", "shutdown", "reboot"]
         if comando_principal in comandos_peligrosos_absolutos:
              # self.logger.error(f"MECC: ¡ALERTA DE SEGURIDAD! Comando explícitamente peligroso: {comando_principal}")
              print(f"MECC: ¡ALERTA DE SEGURIDAD! Comando explícitamente peligroso: {comando_principal}")
              return False
-
+        
         # self.logger.info(f"MECC: Comando validado como seguro: {comando_str}")
         return True
 
     def ejecutar_comando(self, comando_str: str) -> dict:
-        """Ejecuta un comando de consola de forma segura y devuelve su salida."""
-        # self.logger.info(f"MECC: Intentando ejecutar comando: {comando_str}")
+        # Log original
         print(f"MECC: Intentando ejecutar comando: {comando_str}")
 
         if not self._validar_comando(comando_str):
@@ -90,7 +112,6 @@ class ModuloEjecucionComandosConsola:
             return {"exito": False, "stdout": "", "stderr": mensaje_error, "codigo_retorno": -1}
 
         try:
-            # Usar shlex.split para manejar argumentos con espacios de forma segura
             partes_comando = shlex.split(comando_str)
             proceso = subprocess.Popen(
                 partes_comando, 
@@ -98,18 +119,20 @@ class ModuloEjecucionComandosConsola:
                 stdout=subprocess.PIPE, 
                 stderr=subprocess.PIPE, 
                 text=True, 
-                encoding="utf-8"
+                encoding="utf-8",
+                errors="replace" # Añadido para manejar posibles errores de decodificación
             )
-            stdout, stderr = proceso.communicate(timeout=60) # Timeout de 60 segundos
+            stdout, stderr = proceso.communicate(timeout=60) 
             codigo_retorno = proceso.returncode
-
-            # self.logger.info(f"MECC: Comando ")
-            print(f"MECC: Comando ")
+            
+            # Log original, puede que necesite el f-string corregido si estaba mal antes
+            print(f"MECC: Comando '{comando_str}' ejecutado. Código de retorno: {codigo_retorno}")
             return {"exito": codigo_retorno == 0, "stdout": stdout, "stderr": stderr, "codigo_retorno": codigo_retorno}
         
         except FileNotFoundError:
-            mensaje_error = f"Comando no encontrado: {partes_comando[0]}"
-            # self.logger.error(f"MECC: {mensaje_error}")
+            # Esto podría ocurrir si el script no se encuentra en la ruta especificada.
+            mensaje_error = f"Comando no encontrado o archivo de script no hallado: {shlex.split(comando_str)[0]}"
+            print(f"MECC: {mensaje_error}")
             return {"exito": False, "stdout": "", "stderr": mensaje_error, "codigo_retorno": -1}
         except subprocess.TimeoutExpired:
             mensaje_error = f"Comando excedió el tiempo límite: {comando_str}"
@@ -122,40 +145,4 @@ class ModuloEjecucionComandosConsola:
             # self.logger.error(f"MECC: {mensaje_error}", exc_info=True)
             return {"exito": False, "stdout": "", "stderr": mensaje_error, "codigo_retorno": -1}
 
-# Ejemplo de uso (se movería a pruebas o al GPO)
-if __name__ == "__main__":
-    test_project_mecc_dir = "/home/ubuntu/test_mecc_project"
-    if not os.path.exists(test_project_mecc_dir):
-        os.makedirs(test_project_mecc_dir)
-    # Crear un archivo de prueba para ls
-    with open(os.path.join(test_project_mecc_dir, "testfile.txt"), "w") as f:
-        f.write("test content")
-
-    mecc_instance = ModuloEjecucionComandosConsola(test_project_mecc_dir)
-
-    print("--- Pruebas MECC ---")
-    comandos_prueba = [
-        "echo \"Hola desde MECC\"",
-        "ls -l",
-        "git status", # Asumiendo que git está instalado y es seguro para status
-        "python --version",
-        "comando_inexistente_xyz",
-        "rm -rf /", # Debería ser bloqueado por validación
-        "echo \"prueba de argumento no listado para echo\"", # Debería pasar si echo permite args arbitrarios
-        "ls /etc" # Debería ser bloqueado si ls no permite args arbitrarios o si se detecta /etc como sensible
-    ]
-
-    for cmd in comandos_prueba:
-        print(f"\nEjecutando: {cmd}")
-        resultado = mecc_instance.ejecutar_comando(cmd)
-        print(f"  Éxito: {resultado["exito"]}")
-        print(f"  Código Retorno: {resultado["codigo_retorno"]}")
-        if resultado["stdout"]:
-            print(f"  STDOUT:\n{resultado["stdout"]}")
-        if resultado["stderr"]:
-            print(f"  STDERR:\n{resultado["stderr"]}")
-
-    # Limpiar directorio de prueba
-    # import shutil
-    # shutil.rmtree(test_project_mecc_dir)
-
+# Fin de la clase
