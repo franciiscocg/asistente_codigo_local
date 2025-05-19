@@ -2,7 +2,7 @@
 
 ## Introducción
 
-Este proyecto es una implementación de un "Asistente de Código Local" que utiliza la API de Google Gemini (actualmente a través de un mock) para interpretar descripciones de problemas o tareas de programación en lenguaje natural y proponer acciones sobre el sistema de archivos y la consola del usuario. El desarrollo se ha centrado en una arquitectura modular, la seguridad en la ejecución de acciones y un flujo de trabajo detallado.
+Este proyecto es una implementación de un "Asistente de Código Local" que utiliza la API de Google Gemini para interpretar descripciones de problemas o tareas de programación en lenguaje natural y proponer acciones sobre el sistema de archivos y la consola del usuario. El desarrollo se ha centrado en una arquitectura modular, la seguridad en la ejecución de acciones y un flujo de trabajo detallado.
 
 ## Estructura del Proyecto
 
